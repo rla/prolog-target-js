@@ -1,5 +1,3 @@
-var util = require('util');
-
 // Constructor for variables.
 
 function Var() {
@@ -67,6 +65,8 @@ function backtrack(stack) {
 	throw new Error('No more choices');
 }
 
+exports.backtrack = backtrack;
+
 function toString(term) {
 	var term = deref(term);
 	if (term instanceof Var) {
@@ -84,8 +84,6 @@ exports.toString = toString;
 function unification(stack, a, b) {
 	var ad = deref(a);
 	var bd = deref(b);
-	
-	console.log(toString(ad) + ' ' + toString(bd));
 	
 	if (ad instanceof Var) {
 		ad.ref = bd;
@@ -114,4 +112,6 @@ function unification(stack, a, b) {
 	
 	return true;
 }
+
+exports.unification = unification;
 
