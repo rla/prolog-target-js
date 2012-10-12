@@ -4,7 +4,7 @@ var naiverev = require('./naiverev');
 var Var = runtime.Var;
 
 var array = [];
-for (var i = 0; i < 100; i++) {
+for (var i = 0; i < 1000; i++) {
 	array.push(i);
 }
 
@@ -17,4 +17,4 @@ console.time('reverse');
 runtime.run(top);
 console.timeEnd('reverse');
 
-console.log('Reversed is: ' + runtime.toString(reverse));
+//console.log('Reversed is: ' + runtime.toString(reverse));

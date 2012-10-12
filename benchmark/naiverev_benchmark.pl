@@ -2,4 +2,4 @@
 
 run:-
 	findall(E, between(1, 1000, E), Es),
-	time(naiverev(Es, _)).
+	profile(naiverev(Es, _)).

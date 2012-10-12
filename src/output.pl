@@ -12,7 +12,8 @@ write_file(File, Preds):-
 	format(Fd, 'var runtime = require("../runtime");', []),
 	format(Fd, 'var Var = runtime.Var;', []),
 	format(Fd, 'var Struct = runtime.Struct;', []),
-	format(Fd, 'var unify_2 = runtime.unify;', []),
+	format(Fd, 'var $U = runtime.unification;', []),
+	format(Fd, 'var $B = runtime.backtrack;', []),
 	maplist(write_pred(Fd), Preds), !,
 	close(Fd).
 
@@ -24,24 +25,9 @@ write_file(File, Preds):-
 	
 write_pred(Fd, Name/Arity-Clauses):-
 	length(Clauses, NumChoices),
-	predargs(Arity, ArgString),
 	atomic_list_concat([Name, Arity], '_', Fun),
-	format(Fd, 'function ~w(~w, s, cb) {', [Fun, ArgString]),
 	write_clauses(Fd, Clauses, 0, NumChoices),
-	format(Fd, 'return ~w_0(~w, s, cb); }', [Fun, ArgString]),
-	format(Fd, 'exports.~w = ~w;', [Fun, Fun]).
-
-%% predargs(+Arity, -ArgString) is det.
-%
-% Generates atom like '$0, $1, $2' with as many
-% $n tokens as the arity. Must be consistent with
-% clause_variables/3.
-
-predargs(Arity, ArgString):-
-	Last is Arity - 1,
-	findall(Nth, between(0, Last, Nth), Nums),
-	maplist(atomic_concat('$'), Nums, Args),
-	atomic_list_concat(Args, ', ', ArgString).
+	format(Fd, 'exports.~w = ~w_0;', [Fun, Fun]).
 
 %% write_clauses(Fd, Clauses, Nth, NumChoices) is det.
 %
@@ -85,17 +71,24 @@ write_calls(Fd, []):-
 write_calls(Fd, [Call|Calls]):-
 	Call =.. [Name|Args],
 	length(Args, Arity),
-	maplist(termname, Args, ArgTerms),	
-	special_call(Name, RealName),
-	atomic_list_concat([RealName, Arity], '_', Fun),
+	maplist(termname, Args, ArgTerms),		
 	atomic_list_concat(ArgTerms, ', ', ArgTermString),
-	format(Fd, 'return ~w(~w, s, function() {', [Fun, ArgTermString]),
+	write_call(Fd, Name, Arity, ArgTermString, Calls).
+	
+write_call(Fd, '=', 2, ArgTermString, Calls):- !,
+	format(Fd, 'if ($U(s, ~w)) {', [ArgTermString]),
+	write_calls(Fd, Calls),
+	format(Fd, '} else { return $B(s); }', []).
+	
+write_call(Fd, Name, Arity, ArgTermString, []):- !,
+	atomic_list_concat([Name, Arity], '_', Fun),
+	format(Fd, 'return ~w_0(~w, s, cb);', [Fun, ArgTermString]).
+	
+write_call(Fd, Name, Arity, ArgTermString, Calls):-
+	atomic_list_concat([Name, Arity], '_', Fun),
+	format(Fd, 'return ~w_0(~w, s, function() {', [Fun, ArgTermString]),
 	write_calls(Fd, Calls),
 	format(Fd, '});', []).
-	
-special_call('=', 'unify'):- !.
-
-special_call(Name, Name).
 
 %% push_choice(+Fd, +Choice, +Name, +Arity, +ArgString, +NthNext) is det.
 %

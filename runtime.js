@@ -13,7 +13,7 @@ function Struct() {
 Struct.prototype.toString = function() {
 	var args = Array.prototype.slice.call(this.arguments, 1);
 	return this.arguments[0] + '(' + args.map(toString).join(', ') + ')';
-}
+};
 
 exports.Var = Var;
 exports.Struct = Struct;
@@ -21,26 +21,23 @@ exports.Struct = Struct;
 // Dereferences given term.
 
 function deref(term) {
-	while (true) {
-		if (term instanceof Var) {
-			if (term == term.ref) {
-				return term;
-			} else {
-				term = term.ref;
-			}
-		} else {
+	while (term instanceof Var) {
+		if (term === term.ref) {
 			return term;
+		} else {
+			term = term.ref;
 		}
 	}
+	return term;
 }
 
 // Top-level unification to use in predicates.
 
-exports.unify = function(a, b, stack, cb) {
-	if (unification(stack, a, b)) {
+exports.unify = function(a, b, s, cb) {
+	if (unification(s, a, b)) {
 		return cb;
 	} else {
-		return backtrack(stack);
+		return backtrack(s);
 	}
 }
 
@@ -48,7 +45,7 @@ exports.unify = function(a, b, stack, cb) {
 
 exports.run = function(cb) {
 	while (cb = cb());
-}
+};
 
 // Runs backtracking.
 // Undoes variables, returns next goal.
@@ -56,10 +53,10 @@ exports.run = function(cb) {
 function backtrack(stack) {
 	var top;
 	while (top = stack.pop()) {
-		if (top instanceof Var) {
-			top.ref = top;
-		} else {
+		if (typeof top === 'function') {
 			return top;
+		} else {
+			top.ref = top;
 		}
 	}
 	throw new Error('No more choices');
@@ -93,10 +90,11 @@ function unification(stack, a, b) {
 		stack.push(bd);
 	} else if (ad instanceof Struct) {
 		if (bd instanceof Struct) {
-			if (ad.arguments[0] == bd.arguments[0]
-				&& ad.arguments.length == bd.arguments.length) {				
-				for (var i = ad.arguments.length - 1; i >= 1; i--) {
-					if (!unification(stack, ad.arguments[i], bd.arguments[i])) {
+			var aas = ad.arguments;
+			var bas = bd.arguments;
+			if (aas[0] === bas[0] && aas.length === bas.length) {				
+				for (var i = aas.length - 1; i >= 1; i--) {
+					if (!unification(stack, aas[i], bas[i])) {
 						return false;
 					}
 				}
@@ -107,9 +105,66 @@ function unification(stack, a, b) {
 			return false;
 		}
 	} else {
-		return ad == bd;
+		return ad === bd;
 	}
 	
+	return true;
+}
+
+// Optimized version of unification.
+// Actually slower than recursive version.
+
+function unification_stack(s, a, b) {
+	var ulstack = [a];
+	var urstack = [b];
+	
+	while (ulstack.length > 0) {
+		a = ulstack.pop();
+		b = urstack.pop();
+		while (a instanceof Var) {			
+			if (a === a.ref) {
+				break;
+			}
+			a = a.ref;
+		}
+		while (b instanceof Var) {			
+			if (b === b.ref) {
+				break;
+			}
+			b = b.ref;
+		}
+		if (a === b) {
+			continue;
+		}
+		if (a instanceof Var) {
+			a.ref = b;
+			s.push(a);
+			continue;
+		}
+		if (b instanceof Var) {
+			b.ref = a;
+			s.push(b);
+			continue;
+		}
+		if (a instanceof Struct) {
+			if (b instanceof Struct) {
+				var as = a.arguments;
+				var bs = b.arguments;
+				if (as.length !== bs.length || as[0] !== bs[0]) {
+					return false;
+				}
+				var n = as.length;
+				for (var i = 1; i < n; i++) {
+					ulstack.push(as[i]);
+					urstack.push(bs[i]);
+				}
+				continue;
+			} else {
+				return false;
+			}
+		}
+		return false;
+	}
 	return true;
 }
 

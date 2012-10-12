@@ -1,18 +1,3 @@
-prolog-target-js
-================
-
-Simple Prolog to JS transpiler. The project is at rather incomplete state at the moment.
-
-Example input:
-
-```prolog
-append([], Ys, Ys).
-append([X|Xs], Ys, [X|Zs]):- append(Xs, Ys, Zs).
-```
-
-Example output:
-
-```javascript
 var runtime = require("../runtime");
 var Var = runtime.Var;
 var Struct = runtime.Struct;
@@ -58,23 +43,3 @@ function append_3_1($0, $1, $2, s, cb) {
     }
 }
 exports.append_3 = append_3_0;
-```
-
-Calling the predicate
----------------------
-
-```javascript
-var runtime = require('../runtime');
-var util = require('../util');
-var append = require('./append');
-
-var list1 = util.array2List([1, 2, 3, 4, 5]);
-var list2 = util.array2List([6, 7, 8, 9, 10]);
-
-var result = new runtime.Var();
-
-runtime.run(append.append_3(list1, list2, result, [], null));
-
-console.log('Result is: ' + runtime.toString(result));
-```
-

@@ -1,23 +1,41 @@
-prolog-target-js
-================
-
-Simple Prolog to JS transpiler. The project is at rather incomplete state at the moment.
-
-Example input:
-
-```prolog
-append([], Ys, Ys).
-append([X|Xs], Ys, [X|Zs]):- append(Xs, Ys, Zs).
-```
-
-Example output:
-
-```javascript
 var runtime = require("../runtime");
 var Var = runtime.Var;
 var Struct = runtime.Struct;
 var $U = runtime.unification;
 var $B = runtime.backtrack;
+
+function naiverev_2_0($0, $1, s, cb) {
+    s.push(function() {
+        return naiverev_2_1($0, $1, s, cb);
+    });
+    if ($U(s, $0, '[]')) {
+        if ($U(s, $1, '[]')) {
+            return cb;
+        } else {
+            return $B(s);
+        }
+    } else {
+        return $B(s);
+    }
+}
+function naiverev_2_1($0, $1, s, cb) {
+    var $2 = new Var(),
+        $3 = new Var(),
+        $4 = new Var(),
+        $5 = new Var();
+    if ($U(s, $0, new Struct('.', $2, $3))) {
+        if ($U(s, $1, $4)) {
+            return naiverev_2_0($3, $5, s, function() {
+                return append_3_0($5, new Struct('.', $2, '[]'), $4, s, cb);
+            });
+        } else {
+            return $B(s);
+        }
+    } else {
+        return $B(s);
+    }
+}
+exports.naiverev_2 = naiverev_2_0;
 
 function append_3_0($0, $1, $2, s, cb) {
     var $3 = new Var();
@@ -58,23 +76,3 @@ function append_3_1($0, $1, $2, s, cb) {
     }
 }
 exports.append_3 = append_3_0;
-```
-
-Calling the predicate
----------------------
-
-```javascript
-var runtime = require('../runtime');
-var util = require('../util');
-var append = require('./append');
-
-var list1 = util.array2List([1, 2, 3, 4, 5]);
-var list2 = util.array2List([6, 7, 8, 9, 10]);
-
-var result = new runtime.Var();
-
-runtime.run(append.append_3(list1, list2, result, [], null));
-
-console.log('Result is: ' + runtime.toString(result));
-```
-
