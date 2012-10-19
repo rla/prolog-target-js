@@ -31,30 +31,43 @@ function deref(term) {
 	return term;
 }
 
-// Top-level unification to use in predicates.
+// Runs the goal.
 
-exports.unify = function(a, b, s, cb) {
-	if (unification(s, a, b)) {
-		return cb;
-	} else {
-		return backtrack(s);
+function run(cb) {
+	try {
+		while (cb = cb()) {};
+		return true;
+	} catch (e) {
+		return false;
 	}
 }
 
-// Runs the goal.
+exports.run = run;
 
-exports.run = function(cb) {
-	while (cb = cb());
+// Retries the goal.
+
+exports.retry = function(s) {
+	var cb = backtrack(s);
+	if (cb) {
+		return run(cb);
+	} else {
+		return false;
+	}
 };
 
 // Runs backtracking.
 // Undoes variables, returns next goal.
+// Ignores cut choices.
 
-function backtrack(stack) {
+function backtrack(s) {
 	var top;
-	while (top = stack.pop()) {
+	while (top = s.pop()) {
 		if (typeof top === 'function') {
-			return top;
+			if (top.cut) {
+				continue;
+			} else {
+				return top;
+			}			
 		} else {
 			top.ref = top;
 		}
@@ -63,6 +76,22 @@ function backtrack(stack) {
 }
 
 exports.backtrack = backtrack;
+
+// Marks all choices cut down
+// to the given index in the stack.
+
+function cut(s, index) {
+	var current = s.length;
+	while (current > index) {
+		var e = s[current];
+		if (typeof e === 'function') {
+			e.cut = true;
+		}
+		current--;
+	}
+}
+
+exports.cut = cut;
 
 function toString(term) {
 	var term = deref(term);
@@ -111,62 +140,69 @@ function unification(stack, a, b) {
 	return true;
 }
 
-// Optimized version of unification.
-// Actually slower than recursive version.
+// Helper to evaluate arithmetical expressions.
 
-function unification_stack(s, a, b) {
-	var ulstack = [a];
-	var urstack = [b];
+function calc(exp) {
+	var exp = deref(exp);
 	
-	while (ulstack.length > 0) {
-		a = ulstack.pop();
-		b = urstack.pop();
-		while (a instanceof Var) {			
-			if (a === a.ref) {
-				break;
-			}
-			a = a.ref;
+	if (typeof exp === 'number') {
+		return exp;
+	} else if (exp instanceof Struct) {
+		var op = exp.arguments[0];
+		var left = calc(exp.arguments[1]);
+		var right = calc(exp.arguments[2]);
+		if (op === '+') {
+			return left + right;
+		} else if (op === '-') {
+			return left - right;
+		} else if (op === '*') {
+			return left * right;
+		} else if (op === '/') {
+			return left / right;
+		} else {
+			throw new Error('Unknown artithmetical operator ' + op);
 		}
-		while (b instanceof Var) {			
-			if (b === b.ref) {
-				break;
-			}
-			b = b.ref;
-		}
-		if (a === b) {
-			continue;
-		}
-		if (a instanceof Var) {
-			a.ref = b;
-			s.push(a);
-			continue;
-		}
-		if (b instanceof Var) {
-			b.ref = a;
-			s.push(b);
-			continue;
-		}
-		if (a instanceof Struct) {
-			if (b instanceof Struct) {
-				var as = a.arguments;
-				var bs = b.arguments;
-				if (as.length !== bs.length || as[0] !== bs[0]) {
-					return false;
-				}
-				var n = as.length;
-				for (var i = 1; i < n; i++) {
-					ulstack.push(as[i]);
-					urstack.push(bs[i]);
-				}
-				continue;
-			} else {
-				return false;
-			}
-		}
-		return false;
+	} else {
+		throw new Error('Invalid arithmetical expression ' + exp);
 	}
-	return true;
+}
+
+// Implements is/2 predicate.
+
+function is(v, expression, s, cb) {
+	var v = deref(v);
+	
+	if (!(v instanceof Var)) {
+		throw new Error('Left side of is/2 is not a variable');
+	}
+	
+	v.ref = calc(expression);
+	s.push(v);
+	
+	return cb;
+}
+
+// Implements =\=/2 predicate.
+
+function inequal(left, right, s, cb) {
+	if (calc(left) !== calc(right)) {
+		return cb;
+	} else {
+		return backtrack(s);
+	}
+}
+
+// Implements </2 predicate.
+
+function less(left, right, s, cb) {
+	if (deref(left) < deref(right)) {
+		return cb;
+	} else {
+		return backtrack(s);
+	}
 }
 
 exports.unification = unification;
-
+exports.is = is;
+exports.inequal = inequal;
+exports.less = less;

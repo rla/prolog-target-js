@@ -12,8 +12,13 @@ write_file(File, Preds):-
 	format(Fd, 'var runtime = require("../runtime");', []),
 	format(Fd, 'var Var = runtime.Var;', []),
 	format(Fd, 'var Struct = runtime.Struct;', []),
-	format(Fd, 'var $U = runtime.unification;', []),
-	format(Fd, 'var $B = runtime.backtrack;', []),
+	format(Fd, 'var _u = runtime.unification;', []),
+	format(Fd, 'var _b = runtime.backtrack;', []),
+	format(Fd, 'var _is = runtime.is;', []),
+	format(Fd, 'var _inequal = runtime.inequal;', []),
+	format(Fd, 'var _less = runtime.less;', []),
+	format(Fd, 'var _cut = runtime.cut;', []),
+	format(Fd, 'var _s = runtime.toString;', []),
 	maplist(write_pred(Fd), Preds), !,
 	close(Fd).
 
@@ -55,6 +60,7 @@ write_clause(Fd, Head-Calls, Nth, Choice):-
 	atomic_list_concat([Name, Arity, Nth], '_', Fun),
 	format(Fd, 'function ~w(~w, s, cb) {', [Fun, ArgString]),
 	write_locals(Fd, LocalNames),
+	format(Fd, 'var _i = s.length;', []),
 	NthNext is Nth + 1,
 	push_choice(Fd, Choice, Name, Arity, ArgString, NthNext),
 	write_calls(Fd, Calls),
@@ -76,9 +82,31 @@ write_calls(Fd, [Call|Calls]):-
 	write_call(Fd, Name, Arity, ArgTermString, Calls).
 	
 write_call(Fd, '=', 2, ArgTermString, Calls):- !,
-	format(Fd, 'if ($U(s, ~w)) {', [ArgTermString]),
+	format(Fd, 'if (!_u(s, ~w)) return _b(s);', [ArgTermString]),
+	write_calls(Fd, Calls).
+	
+write_call(Fd, 'is', 2, ArgTermString, Calls):- !,
+	format(Fd, 'return _is(~w, s, function() {', [ArgTermString]),
 	write_calls(Fd, Calls),
-	format(Fd, '} else { return $B(s); }', []).
+	format(Fd, '});', []).
+	
+write_call(Fd, '=\\=', 2, ArgTermString, Calls):- !,
+	format(Fd, 'return _inequal(~w, s, function() {', [ArgTermString]),
+	write_calls(Fd, Calls),
+	format(Fd, '});', []).
+	
+write_call(Fd, '<', 2, ArgTermString, Calls):- !,
+	format(Fd, 'return _less(~w, s, function() {', [ArgTermString]),
+	write_calls(Fd, Calls),
+	format(Fd, '});', []).
+	
+write_call(Fd, '!', 0, _, Calls):- !,
+	format(Fd, '_cut(s, _i);', []),
+	write_calls(Fd, Calls).
+	
+write_call(Fd, 'writeln', 1, ArgTermString, Calls):- !,
+	format(Fd, 'console.log(_s(~w));', [ArgTermString]),
+	write_calls(Fd, Calls).
 	
 write_call(Fd, Name, Arity, ArgTermString, []):- !,
 	atomic_list_concat([Name, Arity], '_', Fun),
@@ -110,8 +138,8 @@ write_locals(_, []):- !.
 	
 write_locals(Fd, LocalNames):-
 	maplist(init_local, LocalNames, LocalInits),
-	atomic_list_concat(LocalInits, ', ', LocalString),
-	format(Fd, 'var ~w;', [LocalString]).
+	atomic_list_concat(LocalInits, '; ', LocalString),
+	format(Fd, '~w;', [LocalString]).
 
 %% init_local(+LocalName, -Init) is det.
 %
@@ -119,7 +147,7 @@ write_locals(Fd, LocalNames):-
 % expression.
 	
 init_local(LocalName, Init):-
-	format(atom(Init), '~w = new Var()', [LocalName]).
+	format(atom(Init), 'var ~w = new Var()', [LocalName]).
 
 %% clause_variables(+Head-Calls, -ArgNames, -LocalNames) is det.
 %

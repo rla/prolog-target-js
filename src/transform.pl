@@ -85,7 +85,6 @@ not_supported_call(Functor):-
 		'!'/0,
 		';'/2,
 		'->'/2,
-		'is'/2,
 		'\='/2,
 		'call'/_,
 		'not'/1,
